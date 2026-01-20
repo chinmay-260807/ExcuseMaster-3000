@@ -6,9 +6,9 @@ import { Category, ExcuseResponse } from "../types.ts";
  * Generates a humorous excuse based on the selected category and drama level.
  */
 export const generateExcuse = async (category: Category, isDramatic: boolean): Promise<ExcuseResponse> => {
-  // Use a type-safe way to access the environment variable
-  const apiKey = (process.env as any).API_KEY;
-  const ai = new GoogleGenAI({ apiKey });
+  // Use literal process.env.API_KEY so Vite can replace it during build
+  const apiKey = process.env.API_KEY;
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Generate a creative, humorous, and slightly absurd excuse for the following category: ${category}.
@@ -50,8 +50,8 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
  * Explains the humor behind a generated excuse.
  */
 export const explainHumor = async (excuse: string, category: string): Promise<string> => {
-  const apiKey = (process.env as any).API_KEY;
-  const ai = new GoogleGenAI({ apiKey });
+  const apiKey = process.env.API_KEY;
+  const ai = new GoogleGenAI({ apiKey: apiKey as string });
   const model = 'gemini-3-flash-preview';
   
   const prompt = `You are a "Comedy Absurdity Analyst". 

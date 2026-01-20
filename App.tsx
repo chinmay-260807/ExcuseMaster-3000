@@ -23,7 +23,7 @@ const ConfigGuard = () => (
         <li>Select this Project &gt; Settings &gt; Environment Variables</li>
         <li>Key: <span className="bg-yellow-300 px-1">API_KEY</span></li>
         <li>Value: <span className="bg-yellow-300 px-1">[Your_Gemini_Key]</span></li>
-        <li>Redeploy the application</li>
+        <li><strong>CRITICAL:</strong> Redeploy the application via the "Deployments" tab</li>
       </ol>
       <button 
         onClick={() => window.location.reload()}
@@ -36,10 +36,9 @@ const ConfigGuard = () => (
 );
 
 const App: React.FC = () => {
-  // Use a safe check for process.env to satisfy TypeScript
-  const env = (window as any).process?.env || {};
-  const apiKey = env.API_KEY;
-  const hasApiKey = !!apiKey && apiKey !== 'undefined';
+  // Direct check for the environment variable. Vite's 'define' will replace this literal string.
+  const apiKey = process.env.API_KEY;
+  const hasApiKey = !!apiKey && apiKey !== 'undefined' && apiKey !== '';
   
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
