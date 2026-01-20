@@ -14,7 +14,11 @@ const SEARCH_KEY = 'excuse_master_search';
 // Helper to safely access environment variables in browser context
 const getApiKey = () => {
   try {
-    return typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+    // Check if process is defined globally to avoid ReferenceError
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      return process.env.API_KEY;
+    }
+    return undefined;
   } catch {
     return undefined;
   }

@@ -3,9 +3,18 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { Category, ExcuseResponse } from "../types.ts";
 
 const getAI = () => {
-  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  // Safe environment variable access for client-side environments
+  let apiKey: string | undefined;
+  try {
+    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
+      apiKey = process.env.API_KEY;
+    }
+  } catch (e) {
+    console.warn("Process environment check failed, attempting fallback.", e);
+  }
+
   if (!apiKey || apiKey === 'undefined') {
-    throw new Error("API_KEY is missing from environment variables. Check your deployment configuration.");
+    throw new Error("API_KEY is missing from environment variables. Please set it in your hosting provider's dashboard.");
   }
   return new GoogleGenAI({ apiKey });
 };
