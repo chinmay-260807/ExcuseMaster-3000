@@ -109,6 +109,10 @@
         transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease !important;
       }
     </style>
+    <script>
+      // Polyfill process for browsers that don't have it
+      window.process = window.process || { env: {} };
+    </script>
     <script type="importmap">
 {
   "imports": {
@@ -121,7 +125,7 @@
   }
 }
 </script>
-    <script type="module" src="./index.tsx"></script>
+    <script type="module" src="index.tsx"></script>
   </head>
   <body>
     <div id="root"></div>

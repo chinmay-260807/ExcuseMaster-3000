@@ -2,25 +2,13 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, ExcuseResponse } from "../types.ts";
 
-const getAI = () => {
-  // Safe environment variable access for client-side environments
-  let apiKey: string | undefined;
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      apiKey = process.env.API_KEY;
-    }
-  } catch (e) {
-    console.warn("Process environment check failed, attempting fallback.", e);
-  }
+// Initialize the Gemini API client directly using the environment variable as per guidelines.
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-  if (!apiKey || apiKey === 'undefined') {
-    throw new Error("API_KEY is missing from environment variables. Please set it in your hosting provider's dashboard.");
-  }
-  return new GoogleGenAI({ apiKey });
-};
-
+/**
+ * Generates a humorous excuse based on the selected category and drama level.
+ */
 export const generateExcuse = async (category: Category, isDramatic: boolean): Promise<ExcuseResponse> => {
-  const ai = getAI();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Generate a creative, humorous, and slightly absurd excuse for the following category: ${category}.
@@ -47,6 +35,7 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
       }
     });
 
+    // Access .text property directly as it is a getter.
     const result = JSON.parse(response.text || '{}');
     return {
       text: result.text || "My internet was eaten by a digital goat.",
@@ -58,8 +47,10 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
   }
 };
 
+/**
+ * Explains the humor behind a generated excuse.
+ */
 export const explainHumor = async (excuse: string, category: string): Promise<string> => {
-  const ai = getAI();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `You are a "Comedy Absurdity Analyst". 
@@ -74,6 +65,7 @@ export const explainHumor = async (excuse: string, category: string): Promise<st
       contents: prompt,
     });
 
+    // Access .text property directly.
     return response.text || "The humor core is currently experiencing high latency.";
   } catch (error) {
     console.error("Error explaining humor:", error);

@@ -4,45 +4,11 @@ import { Layout } from './components/Layout.tsx';
 import { CategoryButton } from './components/CategoryButton.tsx';
 import { generateExcuse, explainHumor } from './services/geminiService.ts';
 import { playPop, playChime, playThud } from './services/soundService.ts';
-import { Category, AppState, HistoryItem } from './types.ts';
+import { Category, AppState, HistoryItem, ExcuseResponse } from './types.ts';
 
 const HISTORY_KEY = 'excuse_master_history_neo_v4';
 const THEME_KEY = 'excuse_master_theme';
 const SOUND_KEY = 'excuse_master_sound';
-const SEARCH_KEY = 'excuse_master_search';
-
-// Helper to safely access environment variables in browser context
-const getApiKey = () => {
-  try {
-    // Check if process is defined globally to avoid ReferenceError
-    if (typeof process !== 'undefined' && process.env && process.env.API_KEY) {
-      return process.env.API_KEY;
-    }
-    return undefined;
-  } catch {
-    return undefined;
-  }
-};
-
-const ErrorFallback = ({ error, title = "System Crash" }: { error: string, title?: string }) => (
-  <div className="min-h-screen bg-red-500 flex items-center justify-center p-4">
-    <div className="neobrutalism-card p-8 bg-white max-w-md text-center border-4 border-black shadow-[10px_10px_0px_0px_#000]">
-      <h1 className="font-heading text-4xl uppercase mb-4 text-black">{title}</h1>
-      <div className="bg-black text-white p-4 font-mono text-sm mb-6 text-left border-2 border-black">
-        <p className="opacity-70 mb-2">// ERROR_LOG_START</p>
-        <p className="break-words">"{error}"</p>
-        <p className="opacity-70 mt-2">// ACTION REQUIRED: CHECK VERCEL ENV VARS</p>
-      </div>
-      <button 
-        onClick={() => window.location.reload()}
-        className="neobrutalism-button px-6 py-3 bg-yellow-400 font-heading uppercase hover:bg-yellow-300 transition-colors w-full"
-      >
-        Retry Initialization
-      </button>
-      <p className="mt-4 text-xs font-bold opacity-50 uppercase tracking-widest">ERROR_CODE: ENV_MISSING</p>
-    </div>
-  </div>
-);
 
 const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
@@ -59,14 +25,8 @@ const App: React.FC = () => {
     } catch { return false; }
   });
 
-  const [searchTerm, setSearchTerm] = useState<string>(() => {
-    try {
-      return localStorage.getItem(SEARCH_KEY) || '';
-    } catch { return ''; }
-  });
-
   const [state, setState] = useState<AppState>({
-    currentExcuse: "NEED A COVER STORY?",
+    currentExcuse: "Press the button for a masterpiece of deception.",
     category: Category.SCHOOL,
     isDramatic: false,
     isLoading: false,
@@ -74,431 +34,195 @@ const App: React.FC = () => {
     explanation: null,
     isExplaining: false,
   });
-  
-  const [currentEmoji, setCurrentEmoji] = useState("⚡");
-  const [copied, setCopied] = useState(false);
-  const [history, setHistory] = useState<HistoryItem[]>([]);
-  const [bootPhase, setBootPhase] = useState(0);
-  const [isMounted, setIsMounted] = useState(false);
-  const [configError, setConfigError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const key = getApiKey();
-    if (!key || key === 'undefined') {
-      setConfigError("API_KEY is missing from environment variables. Check your Vercel/Deployment settings.");
-    }
-    
-    // Aesthetic boot sequence animation
-    const phases = ["INITIALIZING KERNEL...", "CHECKING HUMOR MODULES...", "CALIBRATING ABSURDITY...", "READY"];
-    let current = 0;
-    const interval = setInterval(() => {
-      if (current < phases.length - 1) {
-        current++;
-        setBootPhase(current);
-      } else {
-        clearInterval(interval);
-        setIsMounted(true);
-      }
-    }, 400);
-
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark');
-      localStorage.setItem(THEME_KEY, 'dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-      localStorage.setItem(THEME_KEY, 'light');
-    }
-
-    return () => clearInterval(interval);
-  }, [isDarkMode]);
-
-  useEffect(() => {
-    localStorage.setItem(SOUND_KEY, String(isMuted));
-  }, [isMuted]);
-
-  useEffect(() => {
-    localStorage.setItem(SEARCH_KEY, searchTerm);
-  }, [searchTerm]);
-
-  useEffect(() => {
-    const saved = localStorage.getItem(HISTORY_KEY);
-    if (saved) {
-      try {
-        setHistory(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to parse history", e);
-      }
-    }
-  }, []);
+  const [history, setHistory] = useState<HistoryItem[]>(() => {
+    try {
+      const saved = localStorage.getItem(HISTORY_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch { return []; }
+  });
 
   useEffect(() => {
     localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
   }, [history]);
 
-  const performGeneration = useCallback(async (targetCategory: Category) => {
-    setState(prev => ({ ...prev, isLoading: true, error: null, category: targetCategory, explanation: null }));
+  useEffect(() => {
+    localStorage.setItem(THEME_KEY, isDarkMode ? 'dark' : 'light');
+    if (isDarkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [isDarkMode]);
+
+  useEffect(() => {
+    localStorage.setItem(SOUND_KEY, isMuted.toString());
+  }, [isMuted]);
+
+  const handleGenerate = async () => {
+    if (!isMuted) playPop();
+    setState(prev => ({ ...prev, isLoading: true, error: null, explanation: null }));
+
     try {
-      const response = await generateExcuse(targetCategory, state.isDramatic);
+      const result: ExcuseResponse = await generateExcuse(state.category, state.isDramatic);
+      const newExcuse = `${result.emoji} ${result.text}`;
       
-      const newExcuse: HistoryItem = {
-        id: Math.random().toString(36).substring(2, 9) + Date.now(),
-        text: response.text,
-        emoji: response.emoji,
-        category: targetCategory,
+      setState(prev => ({
+        ...prev,
+        currentExcuse: newExcuse,
+        isLoading: false
+      }));
+
+      const newItem: HistoryItem = {
+        id: Math.random().toString(36).substr(2, 9),
+        text: result.text,
+        emoji: result.emoji,
+        category: state.category,
         isDramatic: state.isDramatic,
-        timestamp: Date.now()
+        timestamp: Date.now(),
       };
 
-      if (!isMuted) playPop();
-      setState(prev => ({ ...prev, currentExcuse: response.text, isLoading: false }));
-      setCurrentEmoji(response.emoji);
-      setHistory(prev => [newExcuse, ...prev].slice(0, 30));
+      setHistory(prev => [newItem, ...prev].slice(0, 10));
+      if (!isMuted) playChime();
     } catch (err: any) {
-      setState(prev => ({ ...prev, isLoading: false, error: err.message }));
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: err.message || "Something went wrong"
+      }));
+      if (!isMuted) playThud();
     }
-  }, [state.isDramatic, isMuted]);
-
-  const handleGenerate = () => performGeneration(state.category);
-
-  const handleSurprise = () => {
-    const categories = Object.values(Category);
-    const randomCategory = categories[Math.floor(Math.random() * categories.length)];
-    performGeneration(randomCategory);
   };
 
   const handleExplain = async () => {
-    if (!state.currentExcuse || state.isLoading || state.isExplaining || state.currentExcuse === "NEED A COVER STORY?") return;
+    if (state.explanation || state.isExplaining) return;
+    if (!isMuted) playPop();
     
     setState(prev => ({ ...prev, isExplaining: true }));
     try {
-      if (!isMuted) playPop();
       const explanation = await explainHumor(state.currentExcuse, state.category);
       setState(prev => ({ ...prev, explanation, isExplaining: false }));
-    } catch (err) {
+    } catch {
       setState(prev => ({ ...prev, isExplaining: false }));
     }
   };
 
-  const handleCopy = (text?: string) => {
-    const targetText = text || state.currentExcuse;
-    navigator.clipboard.writeText(targetText);
-    if (!isMuted) playChime();
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const clearHistory = () => {
-    if (window.confirm("ERASE ALL EVIDENCE? THIS CANNOT BE UNDONE.")) {
-      if (!isMuted) playThud();
-      setHistory([]);
-    }
-  };
-
-  const toggleTheme = () => {
-    document.body.classList.add('theme-transition');
-    setIsDarkMode(!isDarkMode);
-    setTimeout(() => document.body.classList.remove('theme-transition'), 300);
-  };
-
-  const filteredHistory = useMemo(() => {
-    if (!searchTerm.trim()) return history;
-    const lowSearch = searchTerm.toLowerCase();
-    return history.filter(item => 
-      item.text.toLowerCase().includes(lowSearch) || 
-      item.category.toLowerCase().includes(lowSearch)
-    );
-  }, [history, searchTerm]);
-
-  if (configError) {
-    return <ErrorFallback error={configError} title="Configuration Error" />;
-  }
-
-  if (!isMounted) return (
-    <div className="min-h-screen bg-[#fef08a] flex items-center justify-center flex-col gap-8 p-6">
-      <div className="w-24 h-24 border-8 border-black border-t-indigo-600 animate-spin shadow-[8px_8px_0px_0px_#000]"></div>
-      <div className="text-center">
-        <div className="font-heading text-4xl animate-pulse tracking-tighter uppercase mb-2">MASTER 3000</div>
-        <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] opacity-60">
-          {["INITIALIZING KERNEL...", "CHECKING HUMOR MODULES...", "CALIBRATING ABSURDITY...", "READY"][bootPhase]}
-        </div>
-      </div>
-    </div>
-  );
+  const categories = useMemo(() => [
+    { type: Category.SCHOOL, icon: '🎒' },
+    { type: Category.OFFICE, icon: '💼' },
+    { type: Category.CODING, icon: '💻' },
+    { type: Category.SOCIAL, icon: '🎉' },
+  ], []);
 
   return (
     <Layout>
-      <div className="flex flex-col gap-6 sm:gap-8">
-        <header className="text-left border-b-4 sm:border-b-8 border-[var(--border)] pb-4 sm:pb-6 relative">
-          <div className="absolute top-0 right-0 flex gap-2">
-            <button 
-              onClick={() => setIsMuted(!isMuted)}
-              className="neobrutalism-button px-3 py-2 text-xl hover:bg-yellow-400 hover:text-black border-[var(--border)]"
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? '🔇' : '🔊'}
-            </button>
-            <button 
-              onClick={toggleTheme}
-              className="neobrutalism-button px-3 py-2 text-xl hover:bg-indigo-500 hover:text-white border-[var(--border)]"
-              title="Toggle Theme"
-            >
-              {isDarkMode ? '🌞' : '🌙'}
-            </button>
-          </div>
-
-          <h1 className="text-4xl sm:text-7xl font-heading text-[var(--text)] uppercase leading-[0.9] tracking-tighter">
-            Excuse<br/><span className="bg-indigo-600 text-white px-2 sm:px-3 inline-block transform -rotate-1 mt-1">Master</span><br/>3000
-          </h1>
-          <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
-            <p className="font-bold uppercase tracking-widest text-[9px] sm:text-[10px] bg-[var(--border)] text-[var(--card-bg)] px-2 py-1 border-[var(--border)]">
-              SYSTEM: ONLINE
-            </p>
-            <p className="font-bold uppercase tracking-widest text-[9px] sm:text-[10px] bg-lime-400 border-2 border-[var(--border)] px-2 py-1 text-black">
-              AI_ENGINE: V3.2
-            </p>
-          </div>
-        </header>
-
-        {/* Category Grid Section */}
-        <section className="relative">
-          <div className="absolute -top-3 left-4 z-10">
-             <span className="font-heading text-[10px] sm:text-xs uppercase tracking-widest bg-yellow-400 text-black px-3 py-1 border-2 border-[var(--border)] shadow-[2px_2px_0px_0px_var(--border)]">
-               01. SELECT SECTOR
-             </span>
-          </div>
-          <div className="neobrutalism-card bg-[var(--bg)] p-3 sm:p-6 border-[var(--border)] shadow-[6px_6px_0px_0px_var(--shadow)]">
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-4 mt-2">
-              <CategoryButton 
-                category={Category.SCHOOL} 
-                icon="📓"
-                isActive={state.category === Category.SCHOOL} 
-                onClick={(c) => setState(prev => ({ ...prev, category: c }))} 
-              />
-              <CategoryButton 
-                category={Category.OFFICE} 
-                icon="🏢"
-                isActive={state.category === Category.OFFICE} 
-                onClick={(c) => setState(prev => ({ ...prev, category: c }))} 
-              />
-              <CategoryButton 
-                category={Category.CODING} 
-                icon="👾"
-                isActive={state.category === Category.CODING} 
-                onClick={(c) => setState(prev => ({ ...prev, category: c }))} 
-              />
-              <CategoryButton 
-                category={Category.SOCIAL} 
-                icon="🍹"
-                isActive={state.category === Category.SOCIAL} 
-                onClick={(c) => setState(prev => ({ ...prev, category: c }))} 
-              />
-              <button
-                onClick={handleSurprise}
-                className={`
-                  neobrutalism-button flex flex-col items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4 
-                  font-heading uppercase tracking-tighter border-4 bg-yellow-400 hover:bg-yellow-500 text-black border-[var(--border)]
-                  active:translate-x-[2px] active:translate-y-[2px] active:shadow-none h-full shadow-[4px_4px_0px_0px_var(--shadow)]
-                `}
-                title="Surprise Me"
-              >
-                <span className="text-xl sm:text-2xl flex-shrink-0">🎲</span>
-                <span className="text-[10px] sm:text-[11px] lg:text-xs text-center leading-none sm:leading-tight w-full max-w-full uppercase">Surprise</span>
-              </button>
-            </div>
-          </div>
-        </section>
-
-        {/* Excuse Box */}
-        <div className={`
-          relative neobrutalism-card p-6 sm:p-10 min-h-[220px] flex items-center justify-center transition-all duration-300 border-[var(--border)]
-          ${state.isDramatic 
-            ? 'bg-orange-500 rotate-1 shadow-[8px_8px_0px_0px_var(--shadow)]' 
-            : 'bg-[var(--card-bg)] -rotate-1 shadow-[10px_10px_0px_0px_var(--shadow)]'
-          }
-        `}>
-          {state.isLoading ? (
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 sm:w-20 sm:h-20 border-[8px] sm:border-[10px] border-[var(--border)] border-t-indigo-500 animate-spin mb-4 sm:mb-6"></div>
-              <p className="font-heading uppercase text-xl sm:text-2xl tracking-tighter text-[var(--text)]">FABRICATING...</p>
-            </div>
-          ) : (
-            <div className="text-center pop-in w-full px-2">
-              <div className="text-5xl sm:text-6xl mb-4 sm:mb-6 bg-[var(--border)] text-[var(--card-bg)] w-20 h-20 sm:w-24 sm:h-24 flex items-center justify-center mx-auto border-4 border-[var(--card-bg)] neobrutalism-button transform rotate-3">
-                {currentEmoji}
-              </div>
-              <p className={`text-xl sm:text-2xl font-heading tracking-tight leading-tight break-words
-                ${state.isDramatic ? 'text-black drop-shadow-[1px_1px_0px_#fff]' : 'text-[var(--text)]'}
-              `}>
-                "{state.currentExcuse}"
-              </p>
-            </div>
-          )}
-
-          {state.error && (
-            <div className="absolute inset-0 bg-red-600 text-white p-6 flex flex-col items-center justify-center font-heading uppercase text-center border-4 border-black z-10">
-              <span className="text-4xl mb-2">⚠️</span>
-              ERROR: {state.error}
-              <button 
-                onClick={() => setState(prev => ({...prev, error: null}))}
-                className="mt-4 bg-white text-black px-4 py-2 text-sm border-2 border-black font-bold hover:bg-yellow-400"
-              >
-                DISMISS
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Primary Controls */}
-        <div className="grid grid-cols-2 gap-4 sm:gap-6">
-          <button
-            onClick={() => setState(prev => ({ ...prev, isDramatic: !prev.isDramatic }))}
-            className={`
-              neobrutalism-button py-3 sm:py-5 font-heading uppercase tracking-tighter text-sm sm:text-lg border-[var(--border)]
-              ${state.isDramatic 
-                ? 'bg-orange-500 text-white shadow-[2px_2px_0px_0px_var(--shadow)] translate-x-1 translate-y-1' 
-                : 'bg-[var(--card-bg)] text-[var(--text)]'
-              }
-            `}
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="font-heading text-4xl sm:text-5xl uppercase tracking-tighter leading-none">
+          Excuse<span className="text-indigo-600 dark:text-indigo-400 italic">Master</span>
+        </h1>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setIsMuted(!isMuted)}
+            className="w-10 h-10 border-4 border-black bg-white dark:bg-zinc-800 flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
           >
-            {state.isDramatic ? '🎭 LESS DRAMA' : '🎭 MORE DRAMA'}
+            {isMuted ? '🔇' : '🔊'}
           </button>
-          <button
-            onClick={() => handleCopy()}
-            className={`
-              neobrutalism-button py-3 sm:py-5 font-heading uppercase tracking-tighter text-sm sm:text-lg border-[var(--border)]
-              ${copied ? 'bg-green-400 !text-black' : 'bg-[var(--card-bg)] text-[var(--text)]'}
-            `}
+          <button 
+            onClick={() => setIsDarkMode(!isDarkMode)}
+            className="w-10 h-10 border-4 border-black bg-white dark:bg-zinc-800 flex items-center justify-center shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] active:translate-x-0.5 active:translate-y-0.5 active:shadow-none"
           >
-            {copied ? 'COPIED!' : '📋 COPY LOG'}
+            {isDarkMode ? '☀️' : '🌙'}
           </button>
         </div>
+      </div>
 
-        {/* Generate / Explain Controls */}
-        <div className="flex gap-3 sm:gap-4">
-          <button
-            onClick={handleGenerate}
-            disabled={state.isLoading}
-            className={`
-              neobrutalism-button flex-grow py-6 sm:py-8 font-heading text-3xl sm:text-5xl uppercase tracking-tighter border-[var(--border)]
-              ${state.isLoading 
-                ? 'bg-gray-400 text-black cursor-wait shadow-none' 
-                : 'bg-[var(--border)] text-[var(--card-bg)] hover:opacity-90 active:translate-x-1 active:translate-y-1 active:shadow-none'
-              }
-            `}
-          >
-            {state.isLoading ? 'WORKING...' : 'FABRICATE'}
-          </button>
-          <button
-            onClick={handleExplain}
-            disabled={state.isLoading || state.isExplaining || state.currentExcuse === "NEED A COVER STORY?"}
-            className={`
-              neobrutalism-button w-20 sm:w-28 flex flex-col items-center justify-center font-heading uppercase tracking-tighter text-[10px] sm:text-xs border-[var(--border)]
-              ${state.isExplaining || state.isLoading || state.currentExcuse === "NEED A COVER STORY?"
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 shadow-none' 
-                : 'bg-indigo-500 text-white hover:bg-indigo-600'
-              }
-            `}
-            title="Explain Humor"
-          >
-            <span className="text-2xl sm:text-3xl mb-1">🧐</span>
-            WHY?
-          </button>
-        </div>
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
+        {categories.map((cat) => (
+          <CategoryButton
+            key={cat.type}
+            category={cat.type}
+            icon={cat.icon}
+            isActive={state.category === cat.type}
+            onClick={(c) => setState(prev => ({ ...prev, category: c }))}
+          />
+        ))}
+      </div>
 
-        {/* Explanation Box */}
-        {(state.explanation || state.isExplaining) && (
-          <div className="pop-in neobrutalism-card p-4 sm:p-6 bg-yellow-100 border-4 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] text-black mb-4">
-            <h3 className="font-heading text-xs sm:text-sm uppercase mb-2 border-b-2 border-black inline-block">ABSURDITY ANALYSIS</h3>
-            {state.isExplaining ? (
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 border-4 border-black border-t-transparent animate-spin"></div>
-                <p className="font-bold text-xs uppercase italic">CONSULTING THE COMEDY ORACLE...</p>
-              </div>
-            ) : (
-              <p className="text-sm sm:text-base font-bold italic leading-tight">
-                {state.explanation}
-              </p>
-            )}
+      <div className="mb-8 p-4 bg-zinc-100 dark:bg-zinc-900 border-4 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+        <label className="flex items-center gap-3 cursor-pointer group">
+          <input 
+            type="checkbox" 
+            checked={state.isDramatic}
+            onChange={(e) => setState(prev => ({ ...prev, isDramatic: e.target.checked }))}
+            className="hidden"
+          />
+          <div className={`w-12 h-6 border-4 border-black relative transition-colors ${state.isDramatic ? 'bg-pink-500' : 'bg-white'}`}>
+            <div className={`absolute top-0 bottom-0 w-4 bg-black transition-all ${state.isDramatic ? 'right-0' : 'left-0'}`}></div>
           </div>
-        )}
+          <span className="font-heading uppercase text-sm tracking-widest group-hover:underline">
+            Drama Mode {state.isDramatic ? 'ON' : 'OFF'}
+          </span>
+        </label>
+      </div>
 
-        {/* History reports */}
-        {(history.length > 0 || searchTerm) && (
-          <div className="mt-8 sm:mt-12">
-            <div className="flex items-center justify-between border-b-4 sm:border-b-8 border-[var(--border)] pb-3 sm:pb-4 mb-4 sm:mb-6">
-              <h2 className="font-heading text-xl sm:text-2xl uppercase tracking-tighter bg-[var(--border)] text-[var(--card-bg)] px-2 sm:px-3 rotate-1 border-[var(--border)]">ARCHIVED LIES</h2>
-              <button 
-                onClick={clearHistory}
-                className="font-heading text-[10px] sm:text-xs border-4 border-[var(--border)] px-3 sm:px-4 py-1 sm:py-2 hover:bg-red-500 transition-all hover:text-white bg-[var(--card-bg)] text-[var(--text)]"
-              >
-                PURGE
-              </button>
-            </div>
-
-            {/* Search Bar */}
-            <div className="mb-6 relative">
-              <input 
-                type="text"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                placeholder="SEARCH ARCHIVES..."
-                className="w-full neobrutalism-button py-3 sm:py-4 px-4 sm:px-6 font-heading uppercase tracking-tighter text-sm sm:text-lg bg-[var(--card-bg)] text-[var(--text)] border-[var(--border)] focus:outline-none focus:ring-4 focus:ring-indigo-500 transition-all"
-              />
-              {searchTerm && (
-                <button 
-                  onClick={() => setSearchTerm('')}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 font-heading text-lg sm:text-xl hover:text-red-500 text-[var(--text)]"
-                >
-                  ✕
-                </button>
-              )}
-            </div>
-
-            <div className="space-y-4 sm:space-y-6 max-h-[400px] sm:max-h-[500px] overflow-y-auto pr-2 sm:pr-4 pb-10">
-              {filteredHistory.map((item) => (
-                <div 
-                  key={item.id}
-                  className={`
-                    history-item-animate neobrutalism-card p-4 sm:p-5 flex gap-3 sm:gap-5 items-start group relative transition-transform border-[var(--border)]
-                    ${item.isDramatic ? 'bg-orange-100 !text-black' : 'bg-[var(--card-bg)] text-[var(--text)]'}
-                  `}
-                >
-                  <div className="bg-[var(--border)] text-[var(--card-bg)] w-10 h-10 sm:w-14 sm:h-14 flex items-center justify-center text-xl sm:text-3xl font-bold flex-shrink-0 border-4 border-[var(--border)] transform group-hover:rotate-0 transition-transform">
-                    {item.emoji}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex flex-wrap gap-1 sm:gap-2 mb-1 sm:mb-2">
-                      <span className="text-[8px] sm:text-[10px] font-black border-2 border-[var(--border)] px-1.5 sm:px-2 py-0.5 uppercase bg-[var(--card-bg)] text-[var(--text)]">
-                        {item.category}
-                      </span>
-                      {item.isDramatic && (
-                        <span className="text-[8px] sm:text-[10px] font-black border-2 border-[var(--border)] px-1.5 sm:px-2 py-0.5 uppercase bg-orange-400 text-black">
-                          DRAMATIC
-                        </span>
-                      )}
-                    </div>
-                    <p className={`text-sm sm:text-lg font-bold tracking-tight leading-snug break-words ${item.isDramatic ? 'text-black' : 'text-[var(--text)]'}`}>
-                      {item.text}
-                    </p>
-                  </div>
-                  <button 
-                    onClick={() => handleCopy(item.text)}
-                    className="neobrutalism-button w-10 h-10 sm:w-12 sm:h-12 bg-indigo-500 text-white flex items-center justify-center hover:bg-indigo-600 flex-shrink-0 border-[var(--border)]"
-                    title="COPY"
-                  >
-                    📋
-                  </button>
-                </div>
-              ))}
-              {filteredHistory.length === 0 && history.length > 0 && (
-                <div className="text-center py-10 border-4 border-dashed border-[var(--border)] bg-[var(--card-bg)]">
-                  <p className="font-heading uppercase text-[var(--text)]">NO MATCHING EVIDENCE FOUND</p>
-                </div>
-              )}
-            </div>
-          </div>
+      <div className="min-h-[160px] flex flex-col items-center justify-center text-center p-6 border-4 border-black bg-white dark:bg-zinc-800 shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] mb-8 relative overflow-hidden">
+        {state.isLoading ? (
+          <div className="font-heading uppercase text-2xl animate-pulse">Fabricating...</div>
+        ) : state.error ? (
+          <div className="text-red-600 dark:text-red-400 font-bold">{state.error}</div>
+        ) : (
+          <p className="text-xl sm:text-2xl font-bold leading-tight z-10">
+            {state.currentExcuse}
+          </p>
         )}
       </div>
+
+      <div className="flex flex-col gap-4 mb-10">
+        <button
+          onClick={handleGenerate}
+          disabled={state.isLoading}
+          className="neobrutalism-button py-6 bg-indigo-500 hover:bg-indigo-400 text-white font-heading text-2xl uppercase tracking-widest border-4 border-black shadow-[6px_6px_0px_0px_#000] disabled:opacity-50"
+        >
+          Generate Lie
+        </button>
+
+        {!state.isLoading && state.currentExcuse.includes(' ') && (
+          <button
+            onClick={handleExplain}
+            disabled={state.isExplaining}
+            className="font-heading uppercase text-xs tracking-widest underline decoration-indigo-500 decoration-4 underline-offset-4 hover:text-indigo-600 transition-colors"
+          >
+            {state.isExplaining ? 'Analyzing...' : 'Why is this funny?'}
+          </button>
+        )}
+      </div>
+
+      {state.explanation && (
+        <div className="mb-10 p-4 border-l-8 border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 italic text-sm">
+          <span className="font-bold uppercase not-italic block mb-1">Analysis:</span>
+          {state.explanation}
+        </div>
+      )}
+
+      {history.length > 0 && (
+        <div className="mt-12">
+          <h2 className="font-heading text-xl uppercase mb-4 border-b-4 border-black inline-block">Previous Alibis</h2>
+          <div className="space-y-4">
+            {history.map((item) => (
+              <div key={item.id} className="p-4 border-4 border-black bg-white dark:bg-zinc-800 text-sm flex gap-4 items-center">
+                <span className="text-2xl">{item.emoji}</span>
+                <div className="flex-1">
+                  <p className="font-bold leading-tight">{item.text}</p>
+                  <div className="flex gap-2 mt-1">
+                    <span className="text-[10px] uppercase font-bold opacity-50 px-1 border border-black/20">{item.category}</span>
+                    {item.isDramatic && <span className="text-[10px] uppercase font-bold text-pink-500">Dramatic</span>}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </Layout>
   );
 };
