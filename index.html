@@ -41,7 +41,6 @@
         overflow-x: hidden;
       }
 
-      /* CRT Scanline Effect Overlay */
       body::before {
         content: "";
         position: fixed;
@@ -55,22 +54,18 @@
         z-index: 9999;
       }
 
-      .font-heading {
-        font-family: 'Archivo Black', sans-serif;
-      }
+      .font-heading { font-family: 'Archivo Black', sans-serif; }
 
       .neobrutalism-card {
         background: var(--card-bg);
         border: 4px solid var(--border);
         box-shadow: 10px 10px 0px 0px var(--shadow);
-        transition: transform 0.1s ease, box-shadow 0.1s ease, background-color 0.3s ease, border-color 0.3s ease;
       }
 
       .neobrutalism-button {
         background: var(--card-bg);
         border: 4px solid var(--border);
         box-shadow: 4px 4px 0px 0px var(--shadow);
-        color: var(--text);
         transition: all 0.1s ease;
       }
 
@@ -83,35 +78,14 @@
         transform: translate(2px, 2px);
         box-shadow: 0px 0px 0px 0px var(--shadow);
       }
-
-      @keyframes popIn {
-        0% { transform: scale(0.8); opacity: 0; }
-        70% { transform: scale(1.05); }
-        100% { transform: scale(1); opacity: 1; }
-      }
-      .pop-in {
-        animation: popIn 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
-      }
-
-      @keyframes itemEnter {
-        0% { opacity: 0; transform: translateY(20px); }
-        100% { opacity: 1; transform: translateY(0); }
-      }
-      .history-item-animate {
-        animation: itemEnter 0.4s cubic-bezier(0.23, 1, 0.32, 1) forwards;
-      }
-
-      ::-webkit-scrollbar { width: 10px; }
-      ::-webkit-scrollbar-track { background: var(--border); }
-      ::-webkit-scrollbar-thumb { background: var(--card-bg); border: 2px solid var(--border); }
-
-      .theme-transition * {
-        transition: background-color 0.3s ease, border-color 0.3s ease, color 0.3s ease, box-shadow 0.3s ease !important;
-      }
     </style>
     <script>
-      // Polyfill process for browsers and ensure it's globally available
-      window.process = { env: {} };
+      // Crucial: Initialize process.env before any module script runs
+      window.process = { 
+        env: {
+          API_KEY: undefined // Will be injected by the platform or remain undefined
+        } 
+      };
     </script>
     <script type="importmap">
 {

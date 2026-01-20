@@ -10,7 +10,34 @@ const HISTORY_KEY = 'excuse_master_history_neo_v4';
 const THEME_KEY = 'excuse_master_theme';
 const SOUND_KEY = 'excuse_master_sound';
 
+const ConfigGuard = () => (
+  <div className="min-h-screen flex items-center justify-center p-6 bg-[#fef08a]">
+    <div className="neobrutalism-card p-8 bg-white max-w-lg border-4 border-black shadow-[12px_12px_0px_0px_#000]">
+      <h2 className="font-heading text-4xl uppercase mb-6 leading-none">Config Error</h2>
+      <div className="bg-red-500 text-white p-4 font-bold border-4 border-black mb-6">
+        MISSING: API_KEY
+      </div>
+      <p className="font-bold mb-4">To fix the blank screen/error, you must add your Gemini API Key to Vercel:</p>
+      <ol className="list-decimal list-inside space-y-2 mb-6 font-mono text-sm bg-gray-100 p-4 border-2 border-black">
+        <li>Go to your Vercel Dashboard</li>
+        <li>Select this Project > Settings > Environment Variables</li>
+        <li>Key: <span className="bg-yellow-300 px-1">API_KEY</span></li>
+        <li>Value: <span className="bg-yellow-300 px-1">[Your_Gemini_Key]</span></li>
+        <li>Redeploy the application</li>
+      </ol>
+      <button 
+        onClick={() => window.location.reload()}
+        className="neobrutalism-button w-full py-4 bg-indigo-500 text-white font-heading uppercase hover:bg-indigo-400"
+      >
+        Retry Connection
+      </button>
+    </div>
+  </div>
+);
+
 const App: React.FC = () => {
+  const hasApiKey = !!process.env.API_KEY && process.env.API_KEY !== 'undefined';
+  
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem(THEME_KEY);
@@ -110,6 +137,8 @@ const App: React.FC = () => {
     { type: Category.SOCIAL, icon: '🎉' },
   ], []);
 
+  if (!hasApiKey) return <ConfigGuard />;
+
   return (
     <Layout>
       <div className="flex justify-between items-center mb-8">
@@ -167,7 +196,6 @@ const App: React.FC = () => {
         ) : state.error ? (
           <div className="text-red-600 dark:text-red-400 font-bold p-4 border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
             {state.error}
-            <p className="text-xs mt-2 opacity-70 uppercase">Make sure API_KEY is set in Vercel Environment Variables</p>
           </div>
         ) : (
           <p className="text-xl sm:text-2xl font-bold leading-tight z-10">

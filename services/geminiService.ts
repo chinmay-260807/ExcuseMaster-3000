@@ -2,20 +2,12 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, ExcuseResponse } from "../types.ts";
 
-// Helper to get the AI client, ensuring it doesn't crash on module load if API_KEY is missing
-const getAIClient = () => {
-  const apiKey = process.env.API_KEY;
-  if (!apiKey) {
-    throw new Error("API_KEY is missing. Please set it in your Vercel project settings.");
-  }
-  return new GoogleGenAI({ apiKey });
-};
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 /**
  * Generates a humorous excuse based on the selected category and drama level.
  */
 export const generateExcuse = async (category: Category, isDramatic: boolean): Promise<ExcuseResponse> => {
-  const ai = getAIClient();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Generate a creative, humorous, and slightly absurd excuse for the following category: ${category}.
@@ -57,7 +49,6 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
  * Explains the humor behind a generated excuse.
  */
 export const explainHumor = async (excuse: string, category: string): Promise<string> => {
-  const ai = getAIClient();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `You are a "Comedy Absurdity Analyst". 
