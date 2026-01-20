@@ -2,12 +2,23 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { Category, ExcuseResponse } from "../types.ts";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+/**
+ * Lazy initializer for the AI client.
+ * This prevents the app from crashing on load if the API_KEY is missing.
+ */
+const getAI = () => {
+  const apiKey = process.env.API_KEY;
+  if (!apiKey || apiKey === 'undefined') {
+    throw new Error("Gemini API Key is missing. Please check your environment variables.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 /**
  * Generates a humorous excuse based on the selected category and drama level.
  */
 export const generateExcuse = async (category: Category, isDramatic: boolean): Promise<ExcuseResponse> => {
+  const ai = getAI();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Generate a creative, humorous, and slightly absurd excuse for the following category: ${category}.
@@ -49,6 +60,7 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
  * Explains the humor behind a generated excuse.
  */
 export const explainHumor = async (excuse: string, category: string): Promise<string> => {
+  const ai = getAI();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `You are a "Comedy Absurdity Analyst". 

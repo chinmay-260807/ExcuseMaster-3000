@@ -20,7 +20,7 @@ const ConfigGuard = () => (
       <p className="font-bold mb-4">To fix the blank screen/error, you must add your Gemini API Key to Vercel:</p>
       <ol className="list-decimal list-inside space-y-2 mb-6 font-mono text-sm bg-gray-100 p-4 border-2 border-black">
         <li>Go to your Vercel Dashboard</li>
-        <li>Select this Project > Settings > Environment Variables</li>
+        <li>Select this Project &gt; Settings &gt; Environment Variables</li>
         <li>Key: <span className="bg-yellow-300 px-1">API_KEY</span></li>
         <li>Value: <span className="bg-yellow-300 px-1">[Your_Gemini_Key]</span></li>
         <li>Redeploy the application</li>
