@@ -1,0 +1,6 @@
+{
+  "name": "ExcuseMaster 3000",
+  "description": "High-performance random excuse generator for school, work, and code. Powered by Gemini-3 Flash.",
+  "requestFramePermissions": [],
+  "version": "3.2.0"
+}
