@@ -1,10 +1,17 @@
 
 import { GoogleGenAI, Type } from "@google/genai";
-import { Category, ExcuseResponse } from "../types";
+import { Category, ExcuseResponse } from "../types.ts";
+
+const getAI = () => {
+  const apiKey = typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  if (!apiKey || apiKey === 'undefined') {
+    throw new Error("API_KEY is missing from environment variables. Check your deployment configuration.");
+  }
+  return new GoogleGenAI({ apiKey });
+};
 
 export const generateExcuse = async (category: Category, isDramatic: boolean): Promise<ExcuseResponse> => {
-  // Create instance inside function to ensure freshest API key from process.env
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = getAI();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Generate a creative, humorous, and slightly absurd excuse for the following category: ${category}.
@@ -36,14 +43,14 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
       text: result.text || "My internet was eaten by a digital goat.",
       emoji: result.emoji || "🐐"
     };
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error generating excuse:", error);
-    throw new Error("The excuse generator is currently tired. Please check your API_KEY or try again.");
+    throw new Error(error.message || "Fabrication failed. Please try again.");
   }
 };
 
 export const explainHumor = async (excuse: string, category: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
+  const ai = getAI();
   const model = 'gemini-3-flash-preview';
   
   const prompt = `You are a "Comedy Absurdity Analyst". 
@@ -58,7 +65,7 @@ export const explainHumor = async (excuse: string, category: string): Promise<st
       contents: prompt,
     });
 
-    return response.text || "It's funny because life is a simulation and this is a glitch.";
+    return response.text || "The humor core is currently experiencing high latency.";
   } catch (error) {
     console.error("Error explaining humor:", error);
     return "The joke is so deep it transcended the digital plane of existence.";

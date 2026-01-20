@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Category } from '../types';
+import { Category } from '../types.ts';
 
 interface CategoryButtonProps {
   category: Category;
@@ -29,16 +29,16 @@ export const CategoryButton: React.FC<CategoryButtonProps> = ({ category, isActi
     <button
       onClick={() => onClick(category)}
       className={`
-        neobrutalism-button flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 py-3 sm:py-3 
-        font-heading uppercase tracking-tighter border-4 transition-all h-full
+        neobrutalism-button flex flex-col items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4
+        font-heading uppercase tracking-tighter border-4 transition-all h-full w-full
         ${getColors()}
         ${isActive ? 'translate-x-[2px] translate-y-[2px] !shadow-none' : 'shadow-[4px_4px_0px_0px_var(--shadow)]'}
       `}
     >
-      <span className={`text-lg sm:text-2xl flex-shrink-0 transition-transform ${isActive ? 'scale-110' : ''}`}>
+      <span className={`text-xl sm:text-2xl flex-shrink-0 transition-transform ${isActive ? 'scale-110' : ''}`}>
         {icon}
       </span>
-      <span className="text-[9px] sm:text-[11px] lg:text-xs text-center sm:text-left leading-[1.1] sm:leading-tight break-words max-w-full px-1">
+      <span className="text-[10px] sm:text-[11px] lg:text-xs text-center leading-[1] sm:leading-tight break-words w-full max-w-full">
         {category}
       </span>
     </button>

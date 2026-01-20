@@ -1,45 +1,64 @@
 
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { Layout } from './components/Layout';
-import { CategoryButton } from './components/CategoryButton';
-import { generateExcuse, explainHumor } from './services/geminiService';
-import { playPop, playChime, playThud } from './services/soundService';
-import { Category, AppState, HistoryItem } from './types';
+import { Layout } from './components/Layout.tsx';
+import { CategoryButton } from './components/CategoryButton.tsx';
+import { generateExcuse, explainHumor } from './services/geminiService.ts';
+import { playPop, playChime, playThud } from './services/soundService.ts';
+import { Category, AppState, HistoryItem } from './types.ts';
 
 const HISTORY_KEY = 'excuse_master_history_neo_v4';
 const THEME_KEY = 'excuse_master_theme';
 const SOUND_KEY = 'excuse_master_sound';
 const SEARCH_KEY = 'excuse_master_search';
 
-// Simple Error Boundary Fallback
-const ErrorFallback = ({ error }: { error: string }) => (
+// Helper to safely access environment variables in browser context
+const getApiKey = () => {
+  try {
+    return typeof process !== 'undefined' ? process.env.API_KEY : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
+const ErrorFallback = ({ error, title = "System Crash" }: { error: string, title?: string }) => (
   <div className="min-h-screen bg-red-500 flex items-center justify-center p-4">
     <div className="neobrutalism-card p-8 bg-white max-w-md text-center border-4 border-black shadow-[10px_10px_0px_0px_#000]">
-      <h1 className="font-heading text-4xl uppercase mb-4">System Crash</h1>
-      <p className="font-bold mb-6 italic">"{error}"</p>
+      <h1 className="font-heading text-4xl uppercase mb-4 text-black">{title}</h1>
+      <div className="bg-black text-white p-4 font-mono text-sm mb-6 text-left border-2 border-black">
+        <p className="opacity-70 mb-2">// ERROR_LOG_START</p>
+        <p className="break-words">"{error}"</p>
+        <p className="opacity-70 mt-2">// ACTION REQUIRED: CHECK VERCEL ENV VARS</p>
+      </div>
       <button 
         onClick={() => window.location.reload()}
-        className="neobrutalism-button px-6 py-3 bg-yellow-400 font-heading uppercase"
+        className="neobrutalism-button px-6 py-3 bg-yellow-400 font-heading uppercase hover:bg-yellow-300 transition-colors w-full"
       >
-        Reboot System
+        Retry Initialization
       </button>
+      <p className="mt-4 text-xs font-bold opacity-50 uppercase tracking-widest">ERROR_CODE: ENV_MISSING</p>
     </div>
   </div>
 );
 
 const App: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
-    const saved = localStorage.getItem(THEME_KEY);
-    return saved === 'dark';
+    try {
+      const saved = localStorage.getItem(THEME_KEY);
+      return saved === 'dark';
+    } catch { return false; }
   });
 
   const [isMuted, setIsMuted] = useState<boolean>(() => {
-    const saved = localStorage.getItem(SOUND_KEY);
-    return saved === 'true';
+    try {
+      const saved = localStorage.getItem(SOUND_KEY);
+      return saved === 'true';
+    } catch { return false; }
   });
 
   const [searchTerm, setSearchTerm] = useState<string>(() => {
-    return localStorage.getItem(SEARCH_KEY) || '';
+    try {
+      return localStorage.getItem(SEARCH_KEY) || '';
+    } catch { return ''; }
   });
 
   const [state, setState] = useState<AppState>({
@@ -55,10 +74,29 @@ const App: React.FC = () => {
   const [currentEmoji, setCurrentEmoji] = useState("⚡");
   const [copied, setCopied] = useState(false);
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [bootPhase, setBootPhase] = useState(0);
   const [isMounted, setIsMounted] = useState(false);
+  const [configError, setConfigError] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsMounted(true);
+    const key = getApiKey();
+    if (!key || key === 'undefined') {
+      setConfigError("API_KEY is missing from environment variables. Check your Vercel/Deployment settings.");
+    }
+    
+    // Aesthetic boot sequence animation
+    const phases = ["INITIALIZING KERNEL...", "CHECKING HUMOR MODULES...", "CALIBRATING ABSURDITY...", "READY"];
+    let current = 0;
+    const interval = setInterval(() => {
+      if (current < phases.length - 1) {
+        current++;
+        setBootPhase(current);
+      } else {
+        clearInterval(interval);
+        setIsMounted(true);
+      }
+    }, 400);
+
     if (isDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem(THEME_KEY, 'dark');
@@ -66,6 +104,8 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
       localStorage.setItem(THEME_KEY, 'light');
     }
+
+    return () => clearInterval(interval);
   }, [isDarkMode]);
 
   useEffect(() => {
@@ -156,10 +196,6 @@ const App: React.FC = () => {
     setTimeout(() => document.body.classList.remove('theme-transition'), 300);
   };
 
-  const toggleSound = () => {
-    setIsMuted(!isMuted);
-  };
-
   const filteredHistory = useMemo(() => {
     if (!searchTerm.trim()) return history;
     const lowSearch = searchTerm.toLowerCase();
@@ -169,9 +205,19 @@ const App: React.FC = () => {
     );
   }, [history, searchTerm]);
 
+  if (configError) {
+    return <ErrorFallback error={configError} title="Configuration Error" />;
+  }
+
   if (!isMounted) return (
-    <div className="min-h-screen bg-[#fef08a] flex items-center justify-center">
-      <div className="font-heading text-4xl animate-pulse">LOADING SYSTEM...</div>
+    <div className="min-h-screen bg-[#fef08a] flex items-center justify-center flex-col gap-8 p-6">
+      <div className="w-24 h-24 border-8 border-black border-t-indigo-600 animate-spin shadow-[8px_8px_0px_0px_#000]"></div>
+      <div className="text-center">
+        <div className="font-heading text-4xl animate-pulse tracking-tighter uppercase mb-2">MASTER 3000</div>
+        <div className="font-mono text-xs font-bold uppercase tracking-[0.2em] opacity-60">
+          {["INITIALIZING KERNEL...", "CHECKING HUMOR MODULES...", "CALIBRATING ABSURDITY...", "READY"][bootPhase]}
+        </div>
+      </div>
     </div>
   );
 
@@ -181,7 +227,7 @@ const App: React.FC = () => {
         <header className="text-left border-b-4 sm:border-b-8 border-[var(--border)] pb-4 sm:pb-6 relative">
           <div className="absolute top-0 right-0 flex gap-2">
             <button 
-              onClick={toggleSound}
+              onClick={() => setIsMuted(!isMuted)}
               className="neobrutalism-button px-3 py-2 text-xl hover:bg-yellow-400 hover:text-black border-[var(--border)]"
               title={isMuted ? "Unmute" : "Mute"}
             >
@@ -201,10 +247,10 @@ const App: React.FC = () => {
           </h1>
           <div className="mt-4 sm:mt-6 flex flex-wrap gap-2">
             <p className="font-bold uppercase tracking-widest text-[9px] sm:text-[10px] bg-[var(--border)] text-[var(--card-bg)] px-2 py-1 border-[var(--border)]">
-              STATUS: NOMINAL
+              SYSTEM: ONLINE
             </p>
             <p className="font-bold uppercase tracking-widest text-[9px] sm:text-[10px] bg-lime-400 border-2 border-[var(--border)] px-2 py-1 text-black">
-              ENGINE: GEMINI-3
+              AI_ENGINE: V3.2
             </p>
           </div>
         </header>
@@ -245,14 +291,14 @@ const App: React.FC = () => {
               <button
                 onClick={handleSurprise}
                 className={`
-                  neobrutalism-button flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-1 py-3 sm:py-3 
+                  neobrutalism-button flex flex-col items-center justify-center gap-1 sm:gap-2 px-2 py-3 sm:py-4 
                   font-heading uppercase tracking-tighter border-4 bg-yellow-400 hover:bg-yellow-500 text-black border-[var(--border)]
                   active:translate-x-[2px] active:translate-y-[2px] active:shadow-none h-full shadow-[4px_4px_0px_0px_var(--shadow)]
                 `}
                 title="Surprise Me"
               >
-                <span className="text-lg sm:text-2xl flex-shrink-0">🎲</span>
-                <span className="text-[9px] sm:text-[11px] lg:text-xs text-center sm:text-left leading-[1.1] sm:leading-tight px-1 uppercase">Surprise</span>
+                <span className="text-xl sm:text-2xl flex-shrink-0">🎲</span>
+                <span className="text-[10px] sm:text-[11px] lg:text-xs text-center leading-none sm:leading-tight w-full max-w-full uppercase">Surprise</span>
               </button>
             </div>
           </div>
@@ -288,26 +334,15 @@ const App: React.FC = () => {
             <div className="absolute inset-0 bg-red-600 text-white p-6 flex flex-col items-center justify-center font-heading uppercase text-center border-4 border-black z-10">
               <span className="text-4xl mb-2">⚠️</span>
               ERROR: {state.error}
+              <button 
+                onClick={() => setState(prev => ({...prev, error: null}))}
+                className="mt-4 bg-white text-black px-4 py-2 text-sm border-2 border-black font-bold hover:bg-yellow-400"
+              >
+                DISMISS
+              </button>
             </div>
           )}
         </div>
-
-        {/* Explanation Box */}
-        {(state.explanation || state.isExplaining) && (
-          <div className="pop-in neobrutalism-card p-4 sm:p-6 bg-yellow-100 border-4 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] text-black">
-            <h3 className="font-heading text-xs sm:text-sm uppercase mb-2 border-b-2 border-black inline-block">ABSURDITY ANALYSIS</h3>
-            {state.isExplaining ? (
-              <div className="flex items-center gap-3">
-                <div className="w-4 h-4 border-4 border-black border-t-transparent animate-spin"></div>
-                <p className="font-bold text-xs uppercase italic">CONSULTING THE COMEDY ORACLE...</p>
-              </div>
-            ) : (
-              <p className="text-sm sm:text-base font-bold italic leading-tight">
-                {state.explanation}
-              </p>
-            )}
-          </div>
-        )}
 
         {/* Primary Controls */}
         <div className="grid grid-cols-2 gap-4 sm:gap-6">
@@ -342,7 +377,7 @@ const App: React.FC = () => {
             className={`
               neobrutalism-button flex-grow py-6 sm:py-8 font-heading text-3xl sm:text-5xl uppercase tracking-tighter border-[var(--border)]
               ${state.isLoading 
-                ? 'bg-gray-400 text-black' 
+                ? 'bg-gray-400 text-black cursor-wait shadow-none' 
                 : 'bg-[var(--border)] text-[var(--card-bg)] hover:opacity-90 active:translate-x-1 active:translate-y-1 active:shadow-none'
               }
             `}
@@ -355,7 +390,7 @@ const App: React.FC = () => {
             className={`
               neobrutalism-button w-20 sm:w-28 flex flex-col items-center justify-center font-heading uppercase tracking-tighter text-[10px] sm:text-xs border-[var(--border)]
               ${state.isExplaining || state.isLoading || state.currentExcuse === "NEED A COVER STORY?"
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50' 
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50 shadow-none' 
                 : 'bg-indigo-500 text-white hover:bg-indigo-600'
               }
             `}
@@ -365,6 +400,23 @@ const App: React.FC = () => {
             WHY?
           </button>
         </div>
+
+        {/* Explanation Box */}
+        {(state.explanation || state.isExplaining) && (
+          <div className="pop-in neobrutalism-card p-4 sm:p-6 bg-yellow-100 border-4 border-[var(--border)] shadow-[4px_4px_0px_0px_var(--border)] text-black mb-4">
+            <h3 className="font-heading text-xs sm:text-sm uppercase mb-2 border-b-2 border-black inline-block">ABSURDITY ANALYSIS</h3>
+            {state.isExplaining ? (
+              <div className="flex items-center gap-3">
+                <div className="w-4 h-4 border-4 border-black border-t-transparent animate-spin"></div>
+                <p className="font-bold text-xs uppercase italic">CONSULTING THE COMEDY ORACLE...</p>
+              </div>
+            ) : (
+              <p className="text-sm sm:text-base font-bold italic leading-tight">
+                {state.explanation}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* History reports */}
         {(history.length > 0 || searchTerm) && (
@@ -437,11 +489,6 @@ const App: React.FC = () => {
               {filteredHistory.length === 0 && history.length > 0 && (
                 <div className="text-center py-10 border-4 border-dashed border-[var(--border)] bg-[var(--card-bg)]">
                   <p className="font-heading uppercase text-[var(--text)]">NO MATCHING EVIDENCE FOUND</p>
-                </div>
-              )}
-              {history.length === 0 && !searchTerm && (
-                <div className="text-center py-10 border-4 border-dashed border-[var(--border)] bg-[var(--card-bg)]">
-                  <p className="font-heading uppercase text-[var(--text)]">ARCHIVE IS EMPTY</p>
                 </div>
               )}
             </div>
