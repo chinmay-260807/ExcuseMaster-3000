@@ -110,8 +110,8 @@
       }
     </style>
     <script>
-      // Polyfill process for browsers that don't have it
-      window.process = window.process || { env: {} };
+      // Polyfill process for browsers and ensure it's globally available
+      window.process = { env: {} };
     </script>
     <script type="importmap">
 {
@@ -125,7 +125,7 @@
   }
 }
 </script>
-    <script type="module" src="index.tsx"></script>
+    <script type="module" src="./index.tsx"></script>
   </head>
   <body>
     <div id="root"></div>

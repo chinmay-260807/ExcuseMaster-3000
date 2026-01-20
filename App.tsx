@@ -26,7 +26,7 @@ const App: React.FC = () => {
   });
 
   const [state, setState] = useState<AppState>({
-    currentExcuse: "Press the button for a masterpiece of deception.",
+    currentExcuse: "Fabricate your first alibi.",
     category: Category.SCHOOL,
     isDramatic: false,
     isLoading: false,
@@ -54,10 +54,6 @@ const App: React.FC = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [isDarkMode]);
-
-  useEffect(() => {
-    localStorage.setItem(SOUND_KEY, isMuted.toString());
-  }, [isMuted]);
 
   const handleGenerate = async () => {
     if (!isMuted) playPop();
@@ -169,7 +165,10 @@ const App: React.FC = () => {
         {state.isLoading ? (
           <div className="font-heading uppercase text-2xl animate-pulse">Fabricating...</div>
         ) : state.error ? (
-          <div className="text-red-600 dark:text-red-400 font-bold">{state.error}</div>
+          <div className="text-red-600 dark:text-red-400 font-bold p-4 border-2 border-red-500 bg-red-50 dark:bg-red-900/20">
+            {state.error}
+            <p className="text-xs mt-2 opacity-70 uppercase">Make sure API_KEY is set in Vercel Environment Variables</p>
+          </div>
         ) : (
           <p className="text-xl sm:text-2xl font-bold leading-tight z-10">
             {state.currentExcuse}
@@ -186,7 +185,7 @@ const App: React.FC = () => {
           Generate Lie
         </button>
 
-        {!state.isLoading && state.currentExcuse.includes(' ') && (
+        {!state.isLoading && state.currentExcuse.length > 25 && (
           <button
             onClick={handleExplain}
             disabled={state.isExplaining}
