@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { Layout } from './components/Layout.tsx';
 import { CategoryButton } from './components/CategoryButton.tsx';
 import { generateExcuse, explainHumor } from './services/geminiService.ts';
@@ -36,7 +36,10 @@ const ConfigGuard = () => (
 );
 
 const App: React.FC = () => {
-  const hasApiKey = !!process.env.API_KEY && process.env.API_KEY !== 'undefined';
+  // Use a safe check for process.env to satisfy TypeScript
+  const env = (window as any).process?.env || {};
+  const apiKey = env.API_KEY;
+  const hasApiKey = !!apiKey && apiKey !== 'undefined';
   
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => {
     try {

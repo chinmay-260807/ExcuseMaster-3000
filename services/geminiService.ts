@@ -6,8 +6,9 @@ import { Category, ExcuseResponse } from "../types.ts";
  * Generates a humorous excuse based on the selected category and drama level.
  */
 export const generateExcuse = async (category: Category, isDramatic: boolean): Promise<ExcuseResponse> => {
-  // Initialize inside the call to ensure process.env.API_KEY is latest and valid.
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  // Use a type-safe way to access the environment variable
+  const apiKey = (process.env as any).API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
   
   const prompt = `Generate a creative, humorous, and slightly absurd excuse for the following category: ${category}.
@@ -49,7 +50,8 @@ export const generateExcuse = async (category: Category, isDramatic: boolean): P
  * Explains the humor behind a generated excuse.
  */
 export const explainHumor = async (excuse: string, category: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const apiKey = (process.env as any).API_KEY;
+  const ai = new GoogleGenAI({ apiKey });
   const model = 'gemini-3-flash-preview';
   
   const prompt = `You are a "Comedy Absurdity Analyst". 
